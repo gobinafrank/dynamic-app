@@ -88,11 +88,11 @@ pipeline {
                                     --restart always \\
                                     mysql:8.0
                                 
-                                # Start webapp container
+                                # Start webapp container - FIXED: properly quote the CATALINA_OPTS value
                                 docker run -d --name webapp \\
                                     --network java-app-network \\
                                     -p 8080:8080 \\
-                                    -e CATALINA_OPTS=\"-Xms512m -Xmx1024m\" \\
+                                    -e 'CATALINA_OPTS=-Xms512m -Xmx1024m' \\
                                     --restart always \\
                                     ''' + env.DOCKER_IMAGE_NAME + ''':''' + env.DOCKER_IMAGE_TAG + '''
                             "
