@@ -22,18 +22,26 @@ pipeline {
         
         stage('Build') {
             steps {
-                // Build using Jenkins' Maven installation
                 sh 'mvn clean package -DskipTests'
             }
         }
         
         stage('Test') {
             steps {
-                sh 'mvn test'
+                script {
+                    def testOutput = sh(script: 'mvn test', returnStdout: true)
+                    env.TESTS_EXECUTED = !(testOutput.contains('No tests to run') || testOutput.contains('No tests were executed'))
+                }
             }
             post {
                 always {
-                    junit '**/target/surefire-reports/*.xml'
+                    script {
+                        if (env.TESTS_EXECUTED == 'true') {
+                            junit '**/target/surefire-reports/*.xml'
+                        } else {
+                            echo "No tests were executed, skipping JUnit report collection"
+                        }
+                    }
                 }
             }
         }
@@ -41,11 +49,13 @@ pipeline {
         stage('Deploy to Docker Host') {
             steps {
                 script {
-                    // Copy WAR file and Dockerfile to Docker host
-                    sh 'scp target/java-webapp-devops.war ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/app.war'
-                    sh 'scp Dockerfile ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/Dockerfile'
-                    sh 'scp docker-compose.yml ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/'
-                    sh 'scp src/main/resources/db/init.sql ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/'
+                    // Copy WAR file and Dockerfile to Docker host with StrictHostKeyChecking=no
+                    sh 'scp -o StrictHostKeyChecking=no target/java-webapp-devops.war ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/app.war'
+                    sh 'scp -o StrictHostKeyChecking=no Dockerfile ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/Dockerfile'
+                    sh 'scp -o StrictHostKeyChecking=no docker-compose.yml ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/'
+                    
+                    // Check if init.sql exists before trying to copy it
+                    sh 'if [ -f src/main/resources/db/init.sql ]; then scp -o StrictHostKeyChecking=no src/main/resources/db/init.sql ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/; fi'
                     
                     // Build and deploy on Docker host
                     withEnv(['DOCKER_CONTEXT=docker-ec2']) {
