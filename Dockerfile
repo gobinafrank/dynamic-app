@@ -1,18 +1,12 @@
-# Multi-stage build
-FROM maven:3.9.9-eclipse-temurin-21 AS build
-WORKDIR /app
-COPY . .
-RUN mvn clean package -DskipTests
-
-# Final image
-FROM tomcat:10-jdk21-temurin
+# Single-stage Dockerfile that uses pre-built WAR file
+FROM tomcat:11.0.6-jdk21-temurin-noble
 LABEL maintainer="example@example.com"
 
 # Remove default Tomcat applications
 RUN rm -rf /usr/local/tomcat/webapps/*
 
-# Copy the built WAR file to Tomcat webapps directory
-COPY --from=build /app/target/java-webapp-devops.war /usr/local/tomcat/webapps/ROOT.war
+# Copy the pre-built WAR file (this assumes the WAR file is in the build context)
+COPY app.war /usr/local/tomcat/webapps/ROOT.war
 
 # Create a directory for logs
 RUN mkdir -p /usr/local/tomcat/logs
