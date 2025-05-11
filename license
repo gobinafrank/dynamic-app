@@ -1,0 +1,64 @@
+
+## 5. Test Files
+
+### `src/test/java/com/example/webapp/HelloServletTest.java`
+```java
+package com.example.webapp;
+
+import static org.mockito.Mockito.*;
+
+import java.io.IOException;
+
+import javax.servlet.RequestDispatcher;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+public class HelloServletTest {
+    
+    private HelloServlet servlet;
+    private HttpServletRequest request;
+    private HttpServletResponse response;
+    private RequestDispatcher dispatcher;
+    
+    @BeforeEach
+    public void setUp() {
+        servlet = new HelloServlet();
+        request = mock(HttpServletRequest.class);
+        response = mock(HttpServletResponse.class);
+        dispatcher = mock(RequestDispatcher.class);
+        
+        when(request.getRequestDispatcher("/index.jsp")).thenReturn(dispatcher);
+    }
+    
+    @Test
+    public void testDoGetWithName() throws ServletException, IOException {
+        // Setup
+        when(request.getParameter("name")).thenReturn("John");
+        
+        // Execute
+        servlet.doGet(request, response);
+        
+        // Verify
+        verify(request).setAttribute("message", "Hello, John!");
+        verify(request).getRequestDispatcher("/index.jsp");
+        verify(dispatcher).forward(request, response);
+    }
+    
+    @Test
+    public void testDoGetWithoutName() throws ServletException, IOException {
+        // Setup
+        when(request.getParameter("name")).thenReturn(null);
+        
+        // Execute
+        servlet.doGet(request, response);
+        
+        // Verify
+        verify(request).setAttribute("message", "Hello, World!");
+        verify(request).getRequestDispatcher("/index.jsp");
+        verify(dispatcher).forward(request, response);
+    }
+}
