@@ -58,15 +58,15 @@ pipeline {
                         // Check if init.sql exists before trying to copy it
                         sh 'if [ -f src/main/resources/db/init.sql ]; then scp -o StrictHostKeyChecking=no src/main/resources/db/init.sql ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/init.sql; fi'
                         
-                        // Execute Docker commands on the remote host
-                        sh """
-                            ssh -o StrictHostKeyChecking=no ubuntu@${DOCKER_HOST_IP} '
+                        // Execute Docker commands on the remote host - IMPORTANT: Use single quotes for the outer ssh command
+                        sh '''
+                            ssh -o StrictHostKeyChecking=no ubuntu@''' + env.DOCKER_HOST_IP + ''' "
                                 cd /home/ubuntu
-                                docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} .
-                                docker tag ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ${DOCKER_IMAGE_NAME}:latest
-                                echo ${DOCKER_HUB_CREDS_PSW} | docker login -u ${DOCKER_HUB_CREDS_USR} --password-stdin
-                                docker push ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
-                                docker push ${DOCKER_IMAGE_NAME}:latest
+                                docker build -t ''' + env.DOCKER_IMAGE_NAME + ''':''' + env.DOCKER_IMAGE_TAG + ''' .
+                                docker tag ''' + env.DOCKER_IMAGE_NAME + ''':''' + env.DOCKER_IMAGE_TAG + ''' ''' + env.DOCKER_IMAGE_NAME + ''':latest
+                                echo ''' + env.DOCKER_HUB_CREDS_PSW + ''' | docker login -u ''' + env.DOCKER_HUB_CREDS_USR + ''' --password-stdin
+                                docker push ''' + env.DOCKER_IMAGE_NAME + ''':''' + env.DOCKER_IMAGE_TAG + '''
+                                docker push ''' + env.DOCKER_IMAGE_NAME + ''':latest
                                 
                                 # Stop and remove existing containers
                                 docker stop webapp mysql || true
@@ -92,11 +92,11 @@ pipeline {
                                 docker run -d --name webapp \\
                                     --network java-app-network \\
                                     -p 8080:8080 \\
-                                    -e CATALINA_OPTS="-Xms512m -Xmx1024m" \\
+                                    -e CATALINA_OPTS=\"-Xms512m -Xmx1024m\" \\
                                     --restart always \\
-                                    ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
-                            '
-                        """
+                                    ''' + env.DOCKER_IMAGE_NAME + ''':''' + env.DOCKER_IMAGE_TAG + '''
+                            "
+                        '''
                     }
                 }
             }
