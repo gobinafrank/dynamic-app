@@ -54,10 +54,9 @@ pipeline {
                         // Copy WAR file and Dockerfile to Docker host
                         sh 'scp -o StrictHostKeyChecking=no target/java-webapp-devops.war ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/app.war'
                         sh 'scp -o StrictHostKeyChecking=no Dockerfile ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/Dockerfile'
-                        sh 'scp -o StrictHostKeyChecking=no docker-compose.yml ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/'
                         
                         // Check if init.sql exists before trying to copy it
-                        sh 'if [ -f src/main/resources/db/init.sql ]; then scp -o StrictHostKeyChecking=no src/main/resources/db/init.sql ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/; fi'
+                        sh 'if [ -f src/main/resources/db/init.sql ]; then scp -o StrictHostKeyChecking=no src/main/resources/db/init.sql ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/init.sql; fi'
                         
                         // Execute Docker commands on the remote host
                         sh """
@@ -69,10 +68,33 @@ pipeline {
                                 docker push ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
                                 docker push ${DOCKER_IMAGE_NAME}:latest
                                 
-                                export DOCKER_IMAGE_TAG=${DOCKER_IMAGE_TAG}
-                                export DOCKER_IMAGE_NAME=${DOCKER_IMAGE_NAME}
-                                docker-compose down || true
-                                docker-compose up -d
+                                # Stop and remove existing containers
+                                docker stop webapp mysql || true
+                                docker rm webapp mysql || true
+                                
+                                # Create a network if it doesn't exist
+                                docker network create java-app-network || true
+                                
+                                # Start MySQL container
+                                docker run -d --name mysql \\
+                                    --network java-app-network \\
+                                    -p 3306:3306 \\
+                                    -e MYSQL_ROOT_PASSWORD=rootpassword \\
+                                    -e MYSQL_DATABASE=javaapp \\
+                                    -e MYSQL_USER=javaapp \\
+                                    -e MYSQL_PASSWORD=javaapp123 \\
+                                    -v /home/ubuntu/mysql-data:/var/lib/mysql \\
+                                    -v /home/ubuntu/init.sql:/docker-entrypoint-initdb.d/init.sql \\
+                                    --restart always \\
+                                    mysql:8.0
+                                
+                                # Start webapp container
+                                docker run -d --name webapp \\
+                                    --network java-app-network \\
+                                    -p 8080:8080 \\
+                                    -e CATALINA_OPTS="-Xms512m -Xmx1024m" \\
+                                    --restart always \\
+                                    ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
                             '
                         """
                     }
