@@ -2,6 +2,7 @@ pipeline {
     agent any
     
     environment {
+        DOCKER_HOST_CREDS = credentials('dockerhost')
         DOCKER_HUB_CREDS = credentials('dockerhub-creds')
         DOCKER_IMAGE_NAME = 'ewanedon/java-webapp-devops'
         DOCKER_IMAGE_TAG = "${env.BUILD_NUMBER}"
@@ -48,29 +49,31 @@ pipeline {
         
         stage('Deploy to Docker Host') {
             steps {
-                script {
-                    // Copy WAR file and Dockerfile to Docker host with StrictHostKeyChecking=no
-                    sh 'scp -o StrictHostKeyChecking=no target/java-webapp-devops.war ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/app.war'
-                    sh 'scp -o StrictHostKeyChecking=no Dockerfile ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/Dockerfile'
-                    sh 'scp -o StrictHostKeyChecking=no docker-compose.yml ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/'
-                    
-                    // Check if init.sql exists before trying to copy it
-                    sh 'if [ -f src/main/resources/db/init.sql ]; then scp -o StrictHostKeyChecking=no src/main/resources/db/init.sql ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/; fi'
-                    
-                    // Build and deploy on Docker host
-                    withEnv(['DOCKER_CONTEXT=docker-ec2']) {
+                sshagent(['dockerhost']) {
+                    script {
+                        // Copy WAR file and Dockerfile to Docker host
+                        sh 'scp -o StrictHostKeyChecking=no target/java-webapp-devops.war ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/app.war'
+                        sh 'scp -o StrictHostKeyChecking=no Dockerfile ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/Dockerfile'
+                        sh 'scp -o StrictHostKeyChecking=no docker-compose.yml ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/'
+                        
+                        // Check if init.sql exists before trying to copy it
+                        sh 'if [ -f src/main/resources/db/init.sql ]; then scp -o StrictHostKeyChecking=no src/main/resources/db/init.sql ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/; fi'
+                        
+                        // Execute Docker commands on the remote host
                         sh """
-                            docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} /home/ubuntu/
-                            docker tag ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ${DOCKER_IMAGE_NAME}:latest
-                            echo ${DOCKER_HUB_CREDS_PSW} | docker login -u ${DOCKER_HUB_CREDS_USR} --password-stdin
-                            docker push ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
-                            docker push ${DOCKER_IMAGE_NAME}:latest
-                            
-                            export DOCKER_IMAGE_TAG=${DOCKER_IMAGE_TAG}
-                            export DOCKER_IMAGE_NAME=${DOCKER_IMAGE_NAME}
-                            cd /home/ubuntu
-                            docker-compose down || true
-                            docker-compose up -d
+                            ssh -o StrictHostKeyChecking=no ubuntu@${DOCKER_HOST_IP} '
+                                cd /home/ubuntu
+                                docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} .
+                                docker tag ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ${DOCKER_IMAGE_NAME}:latest
+                                echo ${DOCKER_HUB_CREDS_PSW} | docker login -u ${DOCKER_HUB_CREDS_USR} --password-stdin
+                                docker push ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
+                                docker push ${DOCKER_IMAGE_NAME}:latest
+                                
+                                export DOCKER_IMAGE_TAG=${DOCKER_IMAGE_TAG}
+                                export DOCKER_IMAGE_NAME=${DOCKER_IMAGE_NAME}
+                                docker-compose down || true
+                                docker-compose up -d
+                            '
                         """
                     }
                 }
