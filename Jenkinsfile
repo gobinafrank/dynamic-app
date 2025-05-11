@@ -2,14 +2,14 @@ pipeline {
     agent any
     
     environment {
-        DOCKER_HUB_CREDS = credentials('dockerhub-credentials')
-        DOCKER_IMAGE_NAME = 'yourusername/java-webapp-devops'
+        DOCKER_HUB_CREDS = credentials('dockerhub-creds')
+        DOCKER_IMAGE_NAME = 'ewanedon/java-webapp-devops'
         DOCKER_IMAGE_TAG = "${env.BUILD_NUMBER}"
-        DOCKER_HOST_IP = 'your-docker-ec2-ip'
+        DOCKER_HOST_IP = '16.171.239.146'
     }
     
     tools {
-        maven 'Maven 3.9.9'
+        maven 'Maven-3.9.9'
         jdk 'JDK 21'
     }
     
