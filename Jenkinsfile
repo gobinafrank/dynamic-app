@@ -2,14 +2,14 @@ pipeline {
     agent any
     
     environment {
-        DOCKER_HUB_CREDS = credentials('dockerhub-creds')
-        DOCKER_IMAGE_NAME = 'ewanedon/java-webapp-devops'
+        DOCKER_HUB_CREDS = credentials('dockerhub-credentials')
+        DOCKER_IMAGE_NAME = 'yourusername/java-webapp-devops'
         DOCKER_IMAGE_TAG = "${env.BUILD_NUMBER}"
-        DOCKER_HOST_IP = '16.171.239.146'
+        DOCKER_HOST_IP = 'your-docker-ec2-ip'
     }
     
     tools {
-        maven 'Maven-3.9.9'
+        maven 'Maven 3.9.9'
         jdk 'JDK 21'
     }
     
@@ -22,6 +22,7 @@ pipeline {
         
         stage('Build') {
             steps {
+                // Build using Jenkins' Maven installation
                 sh 'mvn clean package -DskipTests'
             }
         }
@@ -37,16 +38,16 @@ pipeline {
             }
         }
         
-        stage('Build & Push Docker Image') {
+        stage('Deploy to Docker Host') {
             steps {
                 script {
-                    // Copy WAR file to Docker host
-                    sh 'scp target/*.war ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/app.war'
-                    
-                    // Copy Dockerfile to Docker host
+                    // Copy WAR file and Dockerfile to Docker host
+                    sh 'scp target/java-webapp-devops.war ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/app.war'
                     sh 'scp Dockerfile ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/Dockerfile'
+                    sh 'scp docker-compose.yml ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/'
+                    sh 'scp src/main/resources/db/init.sql ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/'
                     
-                    // Use Docker context to build and push
+                    // Build and deploy on Docker host
                     withEnv(['DOCKER_CONTEXT=docker-ec2']) {
                         sh """
                             docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} /home/ubuntu/
@@ -54,24 +55,7 @@ pipeline {
                             echo ${DOCKER_HUB_CREDS_PSW} | docker login -u ${DOCKER_HUB_CREDS_USR} --password-stdin
                             docker push ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
                             docker push ${DOCKER_IMAGE_NAME}:latest
-                        """
-                    }
-                }
-            }
-        }
-        
-        stage('Deploy') {
-            steps {
-                script {
-                    // Copy docker-compose.yml to Docker host
-                    sh 'scp docker-compose.yml ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/'
-                    
-                    // Copy init.sql to Docker host
-                    sh 'scp src/main/resources/db/init.sql ubuntu@${DOCKER_HOST_IP}:/home/ubuntu/'
-                    
-                    // Deploy using Docker context
-                    withEnv(['DOCKER_CONTEXT=docker-ec2']) {
-                        sh """
+                            
                             export DOCKER_IMAGE_TAG=${DOCKER_IMAGE_TAG}
                             export DOCKER_IMAGE_NAME=${DOCKER_IMAGE_NAME}
                             cd /home/ubuntu
