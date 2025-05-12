@@ -55,14 +55,14 @@
 </head>
 <body>
     <div class="container">
-        <h1>Java Web Application - DevOps Sample</h1>
+        <h1>Java Web Application - DevOps</h1>
         
         <div class="message">
             <c:if test="${not empty message}">
                 <p>${message}</p>
             </c:if>
             <c:if test="${empty message}">
-                <p>Welcome to the Java DevOps Sample Application!</p>
+                <p>Welcome to DobreTech Java Dynamic DevOps Application!</p>
             </c:if>
         </div>
         
