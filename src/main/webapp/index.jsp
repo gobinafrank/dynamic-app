@@ -4,7 +4,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Java DevOps Sample</title>
+    <title>DobreTech Java Dynamic App - DevOps</title>
     <style>
         body {
             font-family: Arial, sans-serif;
