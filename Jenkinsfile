@@ -6,11 +6,11 @@ pipeline {
         DOCKER_HUB_CREDS = credentials('dockerhub-creds')
         DOCKER_IMAGE_NAME = 'ewanedon/java-webapp-devops'
         DOCKER_IMAGE_TAG = "${env.BUILD_NUMBER}"
-        DOCKER_HOST_IP = '13.49.57.27'
+        DOCKER_HOST_IP = '44.222.197.72'
     }
     
     tools {
-        maven 'Maven-3.8.7'
+        maven 'Maven-3.9.9'
         jdk 'JDK 21'
     }
     
